@@ -43,6 +43,8 @@ class Hook(models.Model):
                                       db_index=True,
                                       choices=[(e, e) for e in HOOK_EVENTS.keys()])
     target = models.URLField('Target URL', max_length=255)
+    authorization = models.CharField('Authorization', max_length=200,
+                                     null=True, blank=True)
 
     def dict(self):
         return {
@@ -87,10 +89,13 @@ class Hook(models.Model):
             deliverer = get_module(settings.HOOK_DELIVERER)
             deliverer(self.target, payload, instance=instance, hook=self)
         else:
+            headers = {'Content-Type': 'application/json'}
+            if self.authorization is not None:
+                headers["Authorization"] = self.authorization
             client.post(
                 url=self.target,
                 data=json.dumps(payload, cls=serializers.json.DjangoJSONEncoder),
-                headers={'Content-Type': 'application/json'}
+                headers=headers
             )
 
         signals.hook_sent_event.send_robust(sender=self.__class__, payload=payload, instance=instance, hook=self)
